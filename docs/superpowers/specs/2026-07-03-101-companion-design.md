@@ -60,7 +60,7 @@ Only **Q** needs suit recognition. All other ranks are suit-independent for scor
 | Identity | **Ephemeral, no accounts** — join code + display name + rejoin token |
 | Client platform | **Responsive web app** (mobile-first), Cloudflare Pages. No PWA/offline requirement |
 | Rules | **Configurable at game creation** (data-driven rules engine) |
-| Heap → player | **AI detects heaps + totals; user assigns** each heap to a player and confirms |
+| Heap → player | **AI detects heaps; worker totals them; user assigns** each heap to a player and confirms |
 | Value scoring | **Worker computes** from rules config; **AI perceives only** |
 | Proof image render | **Configurable** (`proofRenderMode`): worker always returns overlay JSON; when `server`, it also rasterizes a PNG into R2 |
 
