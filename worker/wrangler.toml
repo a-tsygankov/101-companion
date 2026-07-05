@@ -1,0 +1,11 @@
+name = "companion-101-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+GEMINI_MODEL = "gemini-2.5-flash"
+
+[observability]
+enabled = true
