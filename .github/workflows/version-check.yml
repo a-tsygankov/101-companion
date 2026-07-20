@@ -1,0 +1,20 @@
+name: Version-bump check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Run version-bump enforcer tests
+        run: node --test scripts/check-version-bump.test.mjs
+      - name: Enforce version bumps
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/check-version-bump.mjs
