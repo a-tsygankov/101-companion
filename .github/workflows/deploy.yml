@@ -18,6 +18,7 @@ jobs:
       schema: ${{ steps.filter.outputs.schema }}
       worker: ${{ steps.filter.outputs.worker }}
       webapp: ${{ steps.filter.outputs.webapp }}
+      have_cf: ${{ steps.cf.outputs.have }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -32,6 +33,14 @@ jobs:
             webapp:
               - 'webapp/**'
               - 'schema/**'
+      # Deploy jobs only run when Cloudflare credentials exist. Comparing the
+      # secret to an empty string yields a boolean and never exposes its value,
+      # so PRs (incl. forks) stay green until the one-time infra setup is done.
+      - id: cf
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CF_TOKEN" ]; then echo "have=true" >> "$GITHUB_OUTPUT"; else echo "have=false" >> "$GITHUB_OUTPUT"; fi
 
   test:
     needs: changes
@@ -48,7 +57,7 @@ jobs:
 
   worker-deploy:
     needs: [changes, test]
-    if: github.event_name == 'push' && needs.changes.outputs.worker == 'true'
+    if: github.event_name == 'push' && needs.changes.outputs.worker == 'true' && needs.changes.outputs.have_cf == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,12 +88,18 @@ jobs:
 
   webapp-preview-deploy:
     needs: [changes, webapp-build]
-    if: github.event_name == 'pull_request' && needs.changes.outputs.webapp == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.webapp == 'true' && needs.changes.outputs.have_cf == 'true'
     runs-on: ubuntu-latest
     outputs:
       preview_url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "pnpm" }
+      # pnpm install so wrangler-action uses the workspace wrangler; otherwise it
+      # self-installs via npm, which cannot parse the "workspace:*" dependency.
+      - run: pnpm install --frozen-lockfile
       - uses: actions/download-artifact@v4
         with: { name: webapp-dist, path: webapp/dist }
       - name: Deploy to Pages (branch preview)
@@ -98,7 +113,7 @@ jobs:
 
   webapp-e2e:
     needs: [changes, webapp-preview-deploy]
-    if: github.event_name == 'pull_request' && needs.changes.outputs.webapp == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.webapp == 'true' && needs.changes.outputs.have_cf == 'true'
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: webapp } }
     steps:
@@ -119,10 +134,14 @@ jobs:
 
   webapp-deploy:
     needs: [changes, test, webapp-build]
-    if: github.event_name == 'push' && needs.changes.outputs.webapp == 'true'
+    if: github.event_name == 'push' && needs.changes.outputs.webapp == 'true' && needs.changes.outputs.have_cf == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "pnpm" }
+      - run: pnpm install --frozen-lockfile
       - uses: actions/download-artifact@v4
         with: { name: webapp-dist, path: webapp/dist }
       - uses: cloudflare/wrangler-action@v3
